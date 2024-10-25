@@ -24,11 +24,11 @@ class EnvironmentMT(MeasureTask):
         data = []
 
         temperature = self.read_sensor_data(TEMP_SENSOR_PATH)
-        if temperature is not None:
+        if float(temperature) is not None:
             data.append(("TPU/Environment/Temperature", [temperature], "Celsius"))
 
         humidity = self.read_sensor_data(HUMIDITY_SENSOR_PATH = '/sys/class/hwmon/hwmon2/humidity1_input')
-        if humidity is not None:
+        if float(humidity) is not None:
             data.append(("TPU/Environment/Humidity", [humidity], "%"))
 
         return data

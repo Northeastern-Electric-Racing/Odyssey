@@ -12,13 +12,13 @@ class GpsMT(MeasureTask):
         send_data = []
         if 0 == self.session.read() and self.session.valid:
             tempMode = self.session.fix.mode
-            send_data.append(("TPU/GPS/Mode", [str(tempMode)], "enum"))
+            send_data.append(("TPU/GPS/Mode", [tempMode], "enum"))
             
             if gps.isfinite(self.session.fix.speed):
-                send_data.append(("TPU/GPS/GroundSpeed", [str(self.session.fix.speed)], "knot"))
+                send_data.append(("TPU/GPS/GroundSpeed", [self.session.fix.speed], "knot"))
 
             if gps.isfinite(self.session.fix.latitude) and gps.isfinite(self.session.fix.longitude) and self.session.fix.latitude != 0 and self.session.fix.longitude != 0:
-                send_data.append(("TPU/GPS/Location", [str(self.session.fix.latitude), str(self.session.fix.longitude)], "coordinate"))
+                send_data.append(("TPU/GPS/Location", [self.session.fix.latitude, self.session.fix.longitude], "coordinate"))
 
         return send_data
 

@@ -31,7 +31,7 @@ class HalowThroughputMT(MeasureTask, BufferedCommand):
         send_data = []
         for item in items:
             item = item.strip('\'').split(" ")
-            data = [item[0].strip(), item[1].strip()]
+            data = [float(item[0].strip()), float(item[1].strip())]
             send_data.append(('TPU/HaLow/DataRate', data, 'kb/s'))
             
         return send_data
@@ -47,8 +47,8 @@ class HalowMCSMT(MeasureTask, OneshotCommand):
         send_data = []
         for line in out:
             data_line = line.splitlines()[2]
-            parsed_data_ap = data_line.split()[5][:-1].strip()
-            parsed_data_sta = data_line.split()[3][:-1].strip()
+            parsed_data_ap = float(data_line.split()[5][:-1].strip())
+            parsed_data_sta = float(data_line.split()[3][:-1].strip())
             send_data.append(("TPU/HaLow/ApMCS", [parsed_data_ap], "int"))
             send_data.append(("TPU/HaLow/StaMCS", [parsed_data_sta], "int"))
 
@@ -65,7 +65,7 @@ class HalowRSSIMT(MeasureTask, OneshotCommand):
         send_data = []
         for line in out:
             split = line.splitlines()[1]
-            data = split.split(":")[1].strip()
+            data = float(split.split(":")[1].strip())
             send_data.append(("TPU/HaLow/RSSI", [data], "int"))
         return send_data
 

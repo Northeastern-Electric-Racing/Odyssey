@@ -7,15 +7,8 @@ class CpuTempMT(MeasureTask):
 
     def measurement(self):
         temps = psutil.sensors_temperatures(fahrenheit=False)
-        for name, entries in temps.items():
-            for entry in entries:
-                line = "    %-20s %s °C (high = %s °C, critical = %s °C)" % (
-                    entry.label or name,
-                    entry.current,
-                    entry.high,
-                    entry.critical,
-                )
-        return [("TPU/OnBoard/CpuTemp", [str(entry.current)], "celsius")]
+        current = temps["cpu_thermal"][0].current
+        return [("TPU/OnBoard/CpuTemp", [current], "celsius")]
     
     
 class CpuUsageMT(MeasureTask):
@@ -24,7 +17,7 @@ class CpuUsageMT(MeasureTask):
 
     def measurement(self):
         cpu_usage = psutil.cpu_percent()
-        return [("TPU/OnBoard/CpuUsage", [str(cpu_usage)], "percent")]
+        return [("TPU/OnBoard/CpuUsage", [cpu_usage], "percent")]
 
 
 
@@ -39,7 +32,7 @@ class BrokerCpuUsageMT(MeasureTask):
 
     def measurement(self):
         broker_cpu_usage = self.process.cpu_percent()
-        return [("TPU/OnBoard/BrokerCpuUsage", [str(broker_cpu_usage)], "percent")]
+        return [("TPU/OnBoard/BrokerCpuUsage", [broker_cpu_usage], "percent")]
 
 
 class MemAvailMT(MeasureTask):
@@ -49,7 +42,7 @@ class MemAvailMT(MeasureTask):
     def measurement(self):
         mem_info = psutil.virtual_memory()
         mem_available = mem_info.available / (1024 * 1024)
-        return [("TPU/OnBoard/MemAvailable", [str(mem_available)], "MB")]
+        return [("TPU/OnBoard/MemAvailable", [mem_available], "MB")]
 
 
 def main():
