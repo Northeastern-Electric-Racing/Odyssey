@@ -1,167 +1,143 @@
-use std::sync::{atomic::AtomicBool, Arc};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use clap::Parser;
-use gstreamer::prelude::*;
-use serde::Deserialize;
+use tpu_telemetry::{
+    mqtt_handler::{MqttProcessor, MqttProcessorOptions},
+    visual::{run_save_pipeline, OverlayOpts, SavePipelineOpts},
+    PublishableMessage,
+};
+use rumqttc::v5::AsyncClient;
+use tokio::{
+    signal,
+    sync::{mpsc, RwLock},
+};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use tracing::{info, level_filters::LevelFilter};
+use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 /// ody-visual command line arguments
 #[derive(Parser, Debug)]
 #[command(version)]
 struct VisualArgs {
     /// The video file
-    #[arg(short = 'v', long, env = "ODY_VISUAL_VIDEO_FILE")]
+    #[arg(short = 'v', long, env = "TPU_TELEMETRY_VIDEO_FILE")]
     video: String,
 
-    /// The scylla URL
+    /// The MQTT/Siren URL
     #[arg(
         short = 'u',
         long,
-        default_value = "localhost:8000",
-        env = "ODY_VISUAL_SCYLLA_URL"
+        default_value = "localhost:1883",
+        env = "ODY_VISUAL_SIREN_URL"
     )]
-    scylla_url: String,
-}
-#[derive(Deserialize, Debug, PartialEq)]
-pub struct PublicRun {
-    pub id: i32,
-    #[serde(rename = "locationName")]
-    pub location_name: String,
-    #[serde(rename = "driverName")]
-    pub driver_name: String,
-    #[serde(rename = "systemName")]
-    pub system_name: String,
-    #[serde(rename = "time")]
-    pub time_ms: i64,
+    mqtt_url: String,
+
+    /// The MQTT topic to get the data from if overlay is wanted
+    #[arg(short = 't', long, env = "TPU_TELEMETRY_SIREN_TOPIC")]
+    mqtt_topic: Option<String>,
+
+    /// The output folder of videos, no trailing slash
+    #[arg(short = 'f', long, env = "TPU_TELEMETRY_OUTPUT_FOLDER")]
+    output_folder: String,
 }
 
-fn run_save_pipeline(
-    end_signal: Arc<AtomicBool>,
-    video: String,
-    save_location: String,
-) -> Result<String, gstreamer::glib::BoolError> {
-    println!("Initializing gstreamer...");
-    gstreamer::init().expect("Could not init gstreamer");
-    // let pipeline = gstreamer::parse::launch(&format!(
-    //     "v4l2src device={} ! decodebin ! videoconvert ! timeoverlay show-times-as-dates=true datetime-epoch=g_date_time_new_now_local ! autovideosink",
-    //     cli.video
-    // ))
-
-    println!("Setting up pipeline!");
-    let source = gstreamer::ElementFactory::make("v4l2src")
-        .name("source")
-        .property("device", video)
-        .build()?;
-    // let a = gstreamer::ElementFactory::make("decodebin").name("decode")
-    //     .build()
-    //     .unwrap();
-    let b = gstreamer::ElementFactory::make("videoconvert")
-        .name("video")
-        .build()?;
-    let c = gstreamer::ElementFactory::make("timeoverlay")
-        .property("show-times-as-dates", true)
-        .property(
-            "datetime-epoch",
-            gstreamer::DateTime::new_now_local_time()
-                .unwrap()
-                .to_g_date_time()?,
-        )
-        .build()?;
-    let d = gstreamer::ElementFactory::make("textoverlay")
-        .property("text", "Northeastern Electric Racing")
-        .property_from_str("valignment", "bottom") // bottom
-        .property_from_str("halignment", "right") // right
-        .build()?;
-    // let sink = gstreamer::ElementFactory::make("autovideosink")
-    //     .name("sink")
-    //     .build()
-    //     .unwrap();
-    let e = gstreamer::ElementFactory::make("avimux").build()?;
-    let sink = gstreamer::ElementFactory::make("filesink")
-        .property("location", save_location)
-        .build()?;
-
-    let pipeline = gstreamer::Pipeline::with_name("ody-visual");
-    pipeline.add_many([&source, &sink, &b, &c, &d, &e])?;
-
-    gstreamer::Element::link_many([&source, &b, &c, &d, &e, &sink])?;
-
-    println!("Playing");
-    pipeline
-        .set_state(gstreamer::State::Playing)
-        .expect("Could not begin");
-    let bus = pipeline.bus().expect("Could not create bus");
-    while !end_signal.load(std::sync::atomic::Ordering::Relaxed) {
-        {
-            use gstreamer::MessageView;
-
-            let Some(msg) = bus.pop() else {
-                continue;
-            };
-
-            match msg.view() {
-                MessageView::Eos(..) => {
-                    println!("Done with streaming prematurely!");
-                    break;
-                }
-                MessageView::Error(err) => {
-                    println!(
-                        "Error from {:?}: {} ({:?})",
-                        err.src().map(|s| s.path_string()),
-                        err.error(),
-                        err.debug()
-                    );
-                    break;
-                }
-                _ => (),
-            }
-        }
-    }
-    pipeline.send_event(gstreamer::event::Eos::new());
-    for msg in bus.iter_timed(gstreamer::ClockTime::NONE) {
-        use gstreamer::MessageView;
-        match msg.view() {
-            MessageView::Eos(..) => {
-                println!("Done with streaming!");
-                break;
-            }
-            MessageView::Error(err) => {
-                println!(
-                    "Error from {:?}: {} ({:?})",
-                    err.src().map(|s| s.path_string()),
-                    err.error(),
-                    err.debug()
-                );
-                break;
-            }
-            _ => (),
-        }
-    }
-    // Shutdown pipeline
-    println!("Shutting down pipeline!");
-    pipeline
-        .set_state(gstreamer::State::Null)
-        .expect("Unable to set the pipeline to the `Null` state");
-
-    Ok("Done".to_owned())
-}
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = VisualArgs::parse();
 
-    let stop = Arc::new(AtomicBool::new(false));
-    for signal in signal_hook::consts::TERM_SIGNALS {
-        signal_hook::flag::register(*signal, Arc::clone(&stop)).unwrap();
+    println!("Initializing tpu telemetry...");
+    println!("Initializing fmt subscriber");
+    // construct a subscriber that prints formatted traces to stdout
+    // if RUST_LOG is not set, defaults to loglevel INFO
+    let subscriber = tracing_subscriber::fmt()
+        .with_thread_ids(true)
+        .with_ansi(true)
+        .with_thread_names(true)
+        .with_span_events(FmtSpan::CLOSE)
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env_lossy(),
+        )
+        .finish();
+    // use that subscriber to process traces emitted after this point
+    tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
+
+    // channel to pass the mqtt data
+    // TODO tune buffer size
+    let (mqtt_sender_tx, mqtt_sender_rx) = mpsc::channel::<PublishableMessage>(1000);
+
+    let task_tracker = TaskTracker::new();
+    let token = CancellationToken::new();
+
+    // time is wrong for a while upon boot.  hold on until it is OK
+    while !SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .is_ok_and(|time| time > Duration::from_millis(1730247194876))
+    {
+        info!("Waiting for good time");
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    let res = reqwest::blocking::get(format!("http://{}/runs", cli.scylla_url)).unwrap();
-    let run: Vec<PublicRun> = serde_json::from_str(&res.text().unwrap()).unwrap();
+    // use the passed in folder
+    let save_location = format!(
+        "{}/frontcam-{}-ner24.avi",
+        cli.output_folder,
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    );
 
-    let save_location = format!("run{}-ner.avi", run.last().unwrap().id);
-    let gst_mgr =
-        std::thread::spawn(move || run_save_pipeline(stop, cli.video, save_location.to_owned()));
+    let gst_token = token.clone();
+    let (overlay_opts, mqtt_recv) = match cli.mqtt_topic {
+        Some(topic) => {
+            let data_rw = Arc::new(RwLock::new(0f32));
+            (
+                Some(OverlayOpts {
+                    overlay_label: topic.clone(),
+                    data_source: Arc::clone(&data_rw),
+                }),
+                Some((topic, data_rw)),
+            )
+        }
+        None => (None, None),
+    };
+    task_tracker.spawn(run_save_pipeline(
+        gst_token,
+        SavePipelineOpts {
+            video: cli.video.clone(),
+            save_location,
+        },
+        overlay_opts,
+    ));
 
-    let gst_res = gst_mgr.join().expect("Join deadlock?");
-    if gst_res.is_err() {
-        println!("Error in gst thread: {:?}", gst_res);
-    }
+    info!("Running MQTT processor");
+    let (recv, opts) = MqttProcessor::new(
+        token.clone(),
+        mqtt_sender_rx,
+        MqttProcessorOptions {
+            mqtt_path: cli.mqtt_url,
+            mqtt_recv,
+        },
+    );
+    let (client, eventloop) = AsyncClient::new(opts, 600);
+    let client_sharable: Arc<AsyncClient> = Arc::new(client);
+    task_tracker.spawn(recv.process_mqtt(client_sharable.clone(), eventloop));
+
+    task_tracker.close();
+
+    info!("Initialization complete, ready...");
+    info!("Use Ctrl+C or SIGINT to exit cleanly!");
+
+    // listen for ctrl_c, then cancel, close, and await for all tasks in the tracker.  Other tasks cancel vai the default tokio system
+    signal::ctrl_c()
+        .await
+        .expect("Could not read cancellation trigger (ctr+c)");
+    info!("Received exit signal, shutting down!");
+    token.cancel();
+    task_tracker.wait().await;
 }
