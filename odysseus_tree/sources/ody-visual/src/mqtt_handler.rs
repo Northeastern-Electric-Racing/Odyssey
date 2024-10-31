@@ -4,7 +4,10 @@ use std::{
 };
 
 use protobuf::Message;
-use rumqttc::v5::{mqttbytes::v5::Packet, AsyncClient, Event, EventLoop, MqttOptions};
+use rumqttc::v5::{
+    mqttbytes::{v5::Packet, QoS},
+    AsyncClient, Event, EventLoop, MqttOptions,
+};
 use tokio::sync::{mpsc::Receiver, RwLock};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace, warn};
@@ -73,7 +76,7 @@ impl MqttProcessor {
     /// This handles the reception of mqtt messages, will not return
     /// * `eventloop` - The eventloop returned by ::new to connect to.  The loop isnt sync so this is the best that can be done
     /// * `client` - The async mqttt v5 client to use for subscriptions
-    pub async fn process_mqtt(self, client: Arc<AsyncClient>, mut eventloop: EventLoop) {
+    pub async fn process_mqtt(mut self, client: Arc<AsyncClient>, mut eventloop: EventLoop) {
         debug!("Subscribing to siren with inputted topic");
         if self.mqtt_recv.as_ref().is_some() {
             client
@@ -107,6 +110,28 @@ impl MqttProcessor {
                     }
                     Err(e) => trace!("Recieved error: {}", e),
                     _ => {}
+                },
+                sendable = self.mqtt_sender_rx.recv() => {
+                    match sendable {
+                        Some(sendable) => {
+                            trace!("Sending {:?}", sendable);
+                            let mut payload = serverdata::ServerData::new();
+                            payload.unit = sendable.unit.to_string();
+                            payload.values = sendable.data;
+                            payload.time_us =  SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .expect("Time went backwards").as_micros() as u64;
+                            let Ok(bytes) = protobuf::Message::write_to_bytes(&payload) else {
+                                warn!("Failed to serialize protobuf message!");
+                                continue;
+                            };
+                            let Ok(_) = client.publish(sendable.topic, QoS::ExactlyOnce, false, bytes).await else {
+                                warn!("Failed to send MQTT message!");
+                                continue;
+                            };
+                        },
+                        None => continue,
+                    }
                 }
             }
         }

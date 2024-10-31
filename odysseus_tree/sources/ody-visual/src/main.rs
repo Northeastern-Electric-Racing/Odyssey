@@ -4,17 +4,18 @@ use std::{
 };
 
 use clap::Parser;
-use tpu_telemetry::{
-    mqtt_handler::{MqttProcessor, MqttProcessorOptions},
-    visual::{run_save_pipeline, OverlayOpts, SavePipelineOpts},
-    PublishableMessage,
-};
 use rumqttc::v5::AsyncClient;
 use tokio::{
     signal,
     sync::{mpsc, RwLock},
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use tpu_telemetry::{
+    mqtt_handler::{MqttProcessor, MqttProcessorOptions},
+    numerical::collect_data,
+    visual::{run_save_pipeline, OverlayOpts, SavePipelineOpts},
+    PublishableMessage,
+};
 use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
@@ -22,16 +23,24 @@ use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 #[derive(Parser, Debug)]
 #[command(version)]
 struct VisualArgs {
+    /// Enable data mode
+    #[arg(short = 'd', long, env = "TPU_TELEMETRY_DATA_ENABLE")]
+    data: bool,
+
+    /// Enable video mode
+    #[arg(short = 'v', long, env = "TPU_TELEMETRY_VIDEO_ENABLE")]
+    video: bool,
+
     /// The video file
-    #[arg(short = 'v', long, env = "TPU_TELEMETRY_VIDEO_FILE")]
-    video: String,
+    #[arg(short = 'l', long, env = "TPU_TELEMETRY_VIDEO_FILE")]
+    video_uri: String,
 
     /// The MQTT/Siren URL
     #[arg(
         short = 'u',
         long,
         default_value = "localhost:1883",
-        env = "ODY_VISUAL_SIREN_URL"
+        env = "TPU_TELEMETRY_SIREN_URL"
     )]
     mqtt_url: String,
 
@@ -106,14 +115,16 @@ async fn main() {
         }
         None => (None, None),
     };
-    task_tracker.spawn(run_save_pipeline(
-        gst_token,
-        SavePipelineOpts {
-            video: cli.video.clone(),
-            save_location,
-        },
-        overlay_opts,
-    ));
+    if cli.video {
+        task_tracker.spawn(run_save_pipeline(
+            gst_token,
+            SavePipelineOpts {
+                video: cli.video_uri.clone(),
+                save_location,
+            },
+            overlay_opts,
+        ));
+    }
 
     info!("Running MQTT processor");
     let (recv, opts) = MqttProcessor::new(
@@ -127,6 +138,11 @@ async fn main() {
     let (client, eventloop) = AsyncClient::new(opts, 600);
     let client_sharable: Arc<AsyncClient> = Arc::new(client);
     task_tracker.spawn(recv.process_mqtt(client_sharable.clone(), eventloop));
+
+    if cli.data {
+        info!("Running TPU data collector");
+        task_tracker.spawn(collect_data(token.clone(), mqtt_sender_tx.clone()));
+    }
 
     task_tracker.close();
 

@@ -69,7 +69,7 @@ pub async fn run_save_pipeline(
 
     gstreamer::Element::link_many([&source, &b, &c, &d, &text, &e, &sink])?;
 
-    println!("Playing");
+    info!("Playing");
     pipeline
         .set_state(gstreamer::State::Playing)
         .expect("Could not begin");
