@@ -1,6 +1,8 @@
 import asyncio
 import math
 import signal
+import time
+
 
 from telemetry.poll_data import gps_data, halow, on_board, can
 from . import (
@@ -40,14 +42,15 @@ def publish_data(topic, message_data):
 
 async def interval(task: MeasureTask):
     async for result in task.set_interval(STOP):
+        time_us = time.time() * 1000000
         # process each tuple
         for packet in result:
             data = server_data_pb2.ServerData()
             topic, values, data.unit = packet
-
+            data.time_us = int(time_us)
             # process the data values
             for val in values:
-                data.value.append(val)
+                data.values.append(val)
             else:
                 message_data = data.SerializeToString()
                 publish_data(topic, message_data)

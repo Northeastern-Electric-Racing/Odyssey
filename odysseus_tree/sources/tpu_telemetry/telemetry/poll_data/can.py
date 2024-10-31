@@ -18,8 +18,8 @@ class CanMT(MeasureTask, BufferedCommand):
             # get rid of empty strings in list
             item = list(filter(None, item))
             # convert percentage to decimal
-            send_data.append(('TPU/Can/BusUtil', [str(float(item[5].strip().strip("%")) / 100)], '%'))
-            send_data.append(('TPU/Can/BitsUsed', [item[2].strip()], 'bits'))
+            send_data.append(('TPU/Can/BusUtil', [float(item[5].strip().strip("%")) / 100], '%'))
+            send_data.append(('TPU/Can/BitsUsed', [float(item[2].strip())], 'bits'))
         
         return send_data
         

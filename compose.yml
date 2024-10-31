@@ -3,7 +3,6 @@ services:
         build: .
         image: ghcr.io/northeastern-electric-racing/odysseus:develop-stability-and-improvements
         command: /bin/bash
-        privileged: true
         tty: true
         stdin_open: true
         network_mode: host

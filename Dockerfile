@@ -32,8 +32,7 @@ RUN apt-get update && apt-get install -y \
     graphviz \
     git-lfs \
     util-linux \ 
-    wpasupplicant \
-    python3-ruamel.yaml   
+    wpasupplicant
 
 # add all buildroot files there
 WORKDIR /home/odysseus/build
