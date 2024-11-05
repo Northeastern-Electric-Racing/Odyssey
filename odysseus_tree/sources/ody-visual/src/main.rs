@@ -16,7 +16,7 @@ use tpu_telemetry::{
     visual::{run_save_pipeline, OverlayOpts, SavePipelineOpts},
     PublishableMessage,
 };
-use tracing::{info, level_filters::LevelFilter};
+use tracing::{info, level_filters::LevelFilter, warn};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 /// ody-visual command line arguments
@@ -116,14 +116,21 @@ async fn main() {
         None => (None, None),
     };
     if cli.video {
-        task_tracker.spawn(run_save_pipeline(
-            gst_token,
-            SavePipelineOpts {
-                video: cli.video_uri.clone(),
-                save_location,
-            },
-            overlay_opts,
-        ));
+        task_tracker.spawn(async move {
+            let res = run_save_pipeline(
+                gst_token,
+                SavePipelineOpts {
+                    video: cli.video_uri.clone(),
+                    save_location,
+                },
+                overlay_opts,
+            )
+            .await;
+            match res {
+                Ok(_) => info!("Gst exited."),
+                Err(e) => warn!("Gst exited with error: {}", e),
+            }
+        });
     }
 
     info!("Running MQTT processor");

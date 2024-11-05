@@ -1,6 +1,6 @@
 use std::{fs, time::Duration};
 
-use sysinfo::{Components, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{Components, MemoryRefreshKind, Pid, ProcessesToUpdate, System};
 use tokio::sync::{mpsc::Sender, Mutex};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace, warn};
