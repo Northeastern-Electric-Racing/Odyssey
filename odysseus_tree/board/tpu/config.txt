@@ -76,3 +76,5 @@ hdmi_force_hotplug:1=1
 
 # for HDMI 1
 framebuffer_priority=7
+
+dtparam=audio=on

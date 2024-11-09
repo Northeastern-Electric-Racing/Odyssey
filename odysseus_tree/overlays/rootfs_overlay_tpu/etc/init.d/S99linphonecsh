@@ -1,0 +1,34 @@
+#!/bin/sh
+
+start() {
+        printf "Starting linphone with settings "
+        linphonecsh init
+        sleep 1s
+        linphonecsh generic "autoanswer enable"
+        linphonecsh generic "firewall none"
+}
+stop() {
+        printf "Stopping linphone"
+        linphonecsh exit
+}
+restart() {
+        stop
+        start
+}
+
+case "$1" in
+  start)
+        start
+        ;;
+  stop)
+        stop
+        ;;
+  restart|reload)
+        restart
+        ;;
+  *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+esac
+
+exit $?
