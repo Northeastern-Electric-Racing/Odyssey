@@ -1,0 +1,26 @@
+#!/bin/sh
+
+PIDFILE=/var/run/odysseus-daemon.pid
+EXECUTABLE=/usr/bin/odysseus-daemon
+
+
+case "$1" in
+  start)
+    echo "Starting odysseus_daemon..."
+    # start (S) executable (x) in background (b), make pid file (m) at p
+    start-stop-daemon -S -x "$EXECUTABLE" -b -m -p "$PIDFILE" -- -s -a
+    ;;
+  stop)
+    echo "Stopping odysseus_daemon..."
+    # stop (K) and remove pidfile
+    start-stop-daemon -K -p "$PIDFILE"
+    rm "$PIDFILE"
+    ;;
+  restart|reload)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    echo "Usage: {start|stop|restart/reload}"
+    exit 1
+esac
