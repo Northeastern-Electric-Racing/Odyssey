@@ -14,7 +14,7 @@ Siren is our [pub/sub](https://www.stackpath.com/edge-academy/what-is-pub-sub-me
 For information about MQTT, check out [this confluence page](https://nerdocs.atlassian.net/wiki/spaces/NER/pages/173113345/Delving+into+MQTT).
 
 ### Running with Docker
-Custom image coming soon. For now, you can run with the instructions in the `extra/mosquitto_base` folder, and to achieve in-car configuration use the image but substitute the configurations with those found in the buildroot rootfs overlay for the TPU.
+Custom image coming soon. For now, you can run with the instructions in the `extra/mosquitto_base` folder, and to achieve in-car configuration use the image but substitute the configurations with those found in the buildroot rootfs overlay for the TPU.  More developer side Siren usage is found in the Argos repository.
 
 ### Local Setup
 Docker is easiest, commands are in `extra/mosquitto_base`.  If you would like to install locally, visit the mosquitto website to learn more.
@@ -52,32 +52,35 @@ All defconfigs come with (in addition to busybox and util_linux utilities):
 - iperf3, iw, iputils, and other network configuration utilities
 
 ## Quick start
-Download and install to PATH git and docker.  Docker desktop is recommended for macOS and Windows.
+Download and install to PATH git and docker.  Docker desktop is required for macOS and Windows. Windows users must use WSL, and have WSL integration enabled in Docker Desktop --> Settings --> Resources --> WSL Integration --> Ubuntu (or other).  
+Then follow these steps in the terminal (WSL users must not be in the mnt/c directory!).  
+All platforms:
 ```
-git clone https://github.com/Northeastern-Electric-Racing/Oydsseus.git
+git clone https://github.com/Northeastern-Electric-Racing/Odysseus.git # or use SSH if configured
 cd ./Odysseus
 git submodule update --init --recursive
 ```
 
-For linux (current support includes all build defconfigs):
+Now launch the docker command line for Odysseus:
+
+For Linux and WSL:
 ```
 docker compose run --rm odysseus
 ```
 
-For mac and windows: (current support includes all _debug defconfigs, on x86_64 host normal defconfigs can work (experimental)):
+For mac: (experimental, limited):
 ```
 docker compose -f "compose-compat.yml" run  --rm --build odysseus # Future launches can omit `--build` for time savings and space savings, but it should be used if the Dockerfile or docker_out_of_tree.sh files change.  
 ```
 
 
-
-Now you are in the docker container.  To build cd into the defconfig directory (either ap, or tpu), then run the make command alias:
+Now you are in the docker container.  To build cd into the defconfig directory (ap, tpu, etc), then run the make command alias:
 ```
 cd ./<defconfig>
 make-current
 ```
 
-**Note: If failure occurs on mac or windows very early in the process, run `make nanomq-source` and try again before reporting the error.**
+**Note: If failure occurs very early in the process, run `make nanomq-source` and try again before reporting the error.**
 You can view the `output.log` for more info.
 
 ### More on docker configuration
@@ -93,7 +96,7 @@ The container has a directory structure as so:
 ### Extra docker tips
 All paths relative to Siren root.
 
-#### Note for Windows/macOS users
+#### Note for macOS users
 The outputs are stored in a docker volume on these platforms to ensure rsync compatability.  Therefore fetching the files requires first running the image, then use `docker cp` to get them to the userspace.  Alternatively, docker desktop has a file explorer for docker volumes that may come in handy.
 
 #### Writing the sd card
