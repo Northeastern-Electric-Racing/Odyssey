@@ -1,4 +1,4 @@
-ODYSSEUS_DAEMON_VERSION = 25d6e3c8b3f078dc17ac05b8e765e1b2accb06a0
+ODYSSEUS_DAEMON_VERSION = 5e071a3b36f8f1437ab5efeee29e8a8258e4ff63
 ODYSSEUS_DAEMON_SITE_METHOD = git
 ODYSSEUS_DAEMON_SITE = https://github.com/Northeastern-Electric-Racing/Odysseus-Daemon
 
