@@ -5,7 +5,7 @@
 # all olther changes suffixed with # ***
 ################################################################################
 
-NERMOSQUITTO_VERSION = 2.0.18
+NERMOSQUITTO_VERSION = 2.0.20
 NERMOSQUITTO_SITE = https://mosquitto.org/files/source
 NERMOSQUITTO_SOURCE = mosquitto-$(NERMOSQUITTO_VERSION).tar.gz # ***
 NERMOSQUITTO_LICENSE = EPL-2.0 or EDLv1.0
@@ -94,6 +94,10 @@ endif
 NERMOSQUITTO_MAKE_DIRS = lib client
 ifeq ($(BR2_PACKAGE_NERMOSQUITTO_BROKER),y)
 NERMOSQUITTO_MAKE_DIRS += src
+endif
+
+ifeq ($(BR2_PACKAGE_MOSQUITTO_BROKER_DYNAMIC_SECURITY_PLUGIN),y)
+MOSQUITTO_MAKE_DIRS += plugins/dynamic-security
 endif
 
 define NERMOSQUITTO_BUILD_CMDS

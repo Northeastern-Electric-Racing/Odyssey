@@ -30,6 +30,16 @@ config BR2_PACKAGE_NERMOSQUITTO_BROKER # ***
 	help
 	  Build and install the mosquitto broker onto target.
     
+config BR2_PACKAGE_NERMOSQUITTO_BROKER_DYNAMIC_SECURITY_PLUGIN
+	bool "dynamic security plugin"
+	depends on BR2_PACKAGE_NERMOSQUITTO_BROKER
+	select BR2_PACKAGE_CJSON
+	select BR2_PACKAGE_OPENSSL
+	help
+	  Build and install the dynamic security plugin for
+	  mosquitto broker onto target.
+
+
 config BR2_PACKAGE_NERMOSQUITTO_PLUGIN_LIST
     string "list of plugins"
     help
