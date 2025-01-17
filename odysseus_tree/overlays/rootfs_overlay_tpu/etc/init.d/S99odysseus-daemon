@@ -8,7 +8,7 @@ case "$1" in
   start)
     echo "Starting odysseus_daemon..."
     # start (S) executable (x) in background (b), make pid file (m) at p
-    start-stop-daemon -S -x "$EXECUTABLE" -b -m -p "$PIDFILE" -- -s -a
+    start-stop-daemon -S -x "$EXECUTABLE" -b -m -p "$PIDFILE" -- -s -a -f /root/ --logger
     ;;
   stop)
     echo "Stopping odysseus_daemon..."
