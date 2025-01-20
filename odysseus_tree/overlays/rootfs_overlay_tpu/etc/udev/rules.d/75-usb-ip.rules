@@ -1,3 +1,5 @@
 # usbipd must be running AND and usbip_host must be manually modprobed
-SYMLINK+="ttyCerberus",SUBSYSTEMS=="usb",KERNEL=="1-1.3",RUN{program}+="/usr/sbin/usbip bind -b %k"
-SYMLINK+="ttyShepherd",SUBSYSTEMS=="usb",KERNEL=="1-1.4",RUN{program}+="/usr/sbin/usbip bind -b %k"
+#SYMLINK+="ttyCerberus",SUBSYSTEMS=="usb",MODE="0666",KERNEL=="1-1.3",RUN{program}+="/usr/sbin/usbip bind -b %k"
+#SUBSYSTEM=="usb",KERNEL=="1-1.4",RUN{program}+="/usr/sbin/usbip bind -b %k"
+SYMLINK+="ttyShepherd",KERNEL=="ttyACM*",SUBSYSTEM=="tty",SUBSYSTEMS=="usb",GROUP="tty",KERNELS=="1-1.4:1.1"
+SYMLINK+="ttyCerberus",KERNEL=="ttyACM*",SUBSYSTEM=="tty",SUBSYSTEMS=="usb",GROUP="tty",KERNELS=="1-1.3:1.1"
